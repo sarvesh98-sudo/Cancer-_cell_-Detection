@@ -3,21 +3,34 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from PIL import Image
-from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, Input, MaxPooling2D
-from tensorflow.keras.models import Sequential, load_model
 
 IMG_SIZE = (96, 96)
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "cancer_model.keras"
 # PCam-style: label is driven by tissue in the center region
 CENTER = (32, 64)
 
+try:
+    from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, Input, MaxPooling2D
+    from tensorflow.keras.models import Sequential, load_model
+
+    HAS_TENSORFLOW = True
+except ImportError:  # Streamlit Cloud on Python 3.13+ often cannot install TF
+    Conv2D = Dense = Dropout = Flatten = Input = MaxPooling2D = None  # type: ignore
+    Sequential = load_model = None  # type: ignore
+    HAS_TENSORFLOW = False
+
 
 def create_advanced_model():
     """Same architecture as the advanced model in main.ipynb."""
+    if not HAS_TENSORFLOW:
+        raise ImportError(
+            "TensorFlow is required to build the model. "
+            "Install tensorflow-cpu on Python 3.11 or 3.12."
+        )
     return Sequential(
         [
             Input(shape=(*IMG_SIZE, 3)),
@@ -38,6 +51,12 @@ def create_advanced_model():
 
 
 def load_cancer_model(path: Optional[Path] = None):
+    if not HAS_TENSORFLOW:
+        raise ImportError(
+            "TensorFlow is not installed. Predictions will use nuclear-density "
+            "features only. For the CNN, use Python 3.11/3.12 and install "
+            "tensorflow-cpu."
+        )
     path = path or MODEL_PATH
     if not path.exists():
         raise FileNotFoundError(
@@ -91,23 +110,32 @@ def nuclear_density_score(image: Image.Image) -> float:
     return float(np.clip(score, 0.0, 1.0))
 
 
-def predict_cancer(model, image: Image.Image, threshold: float = 0.5) -> dict:
+def predict_cancer(
+    model: Any,
+    image: Image.Image,
+    threshold: float = 0.5,
+) -> dict:
     """
     Run inference and return a boolean-style result.
 
     Blends CNN output with a nuclear-density score so real histopathology
     photos (not just synthetic training patches) can return Yes or No.
+    If TensorFlow / the model is unavailable, uses density features only.
     """
     feature_score = nuclear_density_score(image)
 
-    try:
-        batch = preprocess_image(image)
-        cnn_score = float(model.predict(batch, verbose=0)[0][0])
-    except Exception:
+    if model is None or not HAS_TENSORFLOW:
+        score = feature_score
         cnn_score = feature_score
+    else:
+        try:
+            batch = preprocess_image(image)
+            cnn_score = float(model.predict(batch, verbose=0)[0][0])
+        except Exception:
+            cnn_score = feature_score
+        # Prefer features for generalization; CNN still contributes when confident
+        score = 0.65 * feature_score + 0.35 * cnn_score
 
-    # Prefer features for generalization; CNN still contributes when confident
-    score = 0.65 * feature_score + 0.35 * cnn_score
     has_cancer = score >= threshold
     return {
         "has_cancer": has_cancer,

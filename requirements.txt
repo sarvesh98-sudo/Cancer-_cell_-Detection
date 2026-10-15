@@ -1,4 +1,6 @@
 streamlit>=1.28.0
-tensorflow>=2.13.0
-numpy>=1.24.0
+numpy>=1.24.0,<2.3
 Pillow>=10.0.0
+# Pin a stable wheel set for Streamlit Community Cloud.
+# Select Python 3.11 or 3.12 in Advanced settings (3.13+/3.14 often lack TF wheels).
+tensorflow-cpu>=2.15.0,<2.19; python_version < "3.13"

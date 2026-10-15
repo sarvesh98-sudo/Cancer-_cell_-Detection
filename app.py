@@ -1,11 +1,14 @@
 """Minimal Streamlit UI: upload a cell image → Yes / No cancer."""
 
-from pathlib import Path
-
 import streamlit as st
 from PIL import Image
 
-from model_utils import MODEL_PATH, load_cancer_model, predict_cancer
+from model_utils import (
+    HAS_TENSORFLOW,
+    MODEL_PATH,
+    load_cancer_model,
+    predict_cancer,
+)
 
 st.set_page_config(
     page_title="Cancer Cell Detection",
@@ -66,7 +69,13 @@ uploaded = st.file_uploader(
 
 if uploaded is None:
     st.caption("Supported: PNG, JPG, TIFF, BMP, WEBP")
-    if not MODEL_PATH.exists():
+    if not HAS_TENSORFLOW:
+        st.info(
+            "Running without TensorFlow (nuclear-density scoring). "
+            "For the full CNN, redeploy with **Python 3.11 or 3.12** in "
+            "Streamlit Advanced settings."
+        )
+    elif not MODEL_PATH.exists():
         st.warning(
             "Model file missing. Create one with:\n\n"
             "`python3.11 train_bootstrap.py`"
@@ -75,12 +84,13 @@ else:
     image = Image.open(uploaded)
     st.image(image, width="stretch", caption="Uploaded image")
 
-    try:
-        mtime = MODEL_PATH.stat().st_mtime if MODEL_PATH.exists() else 0.0
-        model = get_model(mtime)
-    except FileNotFoundError as exc:
-        st.error(str(exc))
-        st.stop()
+    model = None
+    if HAS_TENSORFLOW and MODEL_PATH.exists():
+        try:
+            mtime = MODEL_PATH.stat().st_mtime
+            model = get_model(mtime)
+        except Exception as exc:
+            st.warning(f"CNN unavailable ({exc}). Using density features only.")
 
     with st.spinner("Analyzing…"):
         result = predict_cancer(model, image)
