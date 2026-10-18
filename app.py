@@ -26,20 +26,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Cloud-safe CSS injection (st.markdown often strips <style> / <h1> on deploy)
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Syne:wght@600;700;800&display=swap');
 
 :root {
   --ink: #0a1c1f;
   --ink-soft: #3d5559;
-  --paper: #f4f9f8;
   --teal: #0b6e6a;
   --teal-deep: #084e4b;
-  --alert: #b42318;
-  --alert-bg: #fef3f2;
-  --clear: #067647;
-  --clear-bg: #ecfdf3;
   --line: rgba(10, 28, 31, 0.12);
 }
 
@@ -55,26 +49,69 @@ html, body, [class*="css"], .stApp, .stMarkdown, p, div, span, button, label {
 }
 
 [data-testid="stHeader"] { background: transparent !important; }
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
-header { visibility: hidden; }
+#MainMenu, footer, header { visibility: hidden; }
 
+/* —— Centered page column —— */
 .block-container {
-  max-width: 720px !important;
-  padding-top: 1.5rem !important;
+  max-width: 680px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-top: 1.25rem !important;
   padding-bottom: 2.5rem !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
 }
 
+/* Kill Streamlit default left bias on markdown */
+[data-testid="stMarkdownContainer"] {
+  width: 100% !important;
+}
+[data-testid="stMarkdownContainer"] > * {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* —— Uploader: center contents —— */
 [data-testid="stFileUploader"] {
   background: rgba(255,255,255,0.72) !important;
   border: 1.5px dashed rgba(11, 110, 106, 0.4) !important;
   border-radius: 18px !important;
-  padding: 0.85rem 0.75rem 0.35rem !important;
+  padding: 1.1rem 1rem 0.75rem !important;
+  width: 100% !important;
 }
 
 [data-testid="stFileUploader"] section {
   border: none !important;
   background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 0.35rem !important;
+}
+
+[data-testid="stFileUploader"] section > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  text-align: center !important;
+}
+
+[data-testid="stFileUploaderDropzone"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.85rem !important;
+  flex-wrap: wrap !important;
+}
+
+[data-testid="stFileUploaderDropzoneInstructions"] {
+  text-align: center !important;
+  align-items: center !important;
 }
 
 [data-testid="stFileUploader"] button {
@@ -83,32 +120,70 @@ header { visibility: hidden; }
   border: none !important;
   border-radius: 10px !important;
   font-weight: 700 !important;
+  margin: 0 auto !important;
 }
 
 [data-testid="stFileUploader"] button:hover {
   background: #084e4b !important;
 }
 
+/* —— Equal demo grid —— */
+div[data-testid="stHorizontalBlock"] {
+  align-items: stretch !important;
+  gap: 0.75rem !important;
+  margin-bottom: 0.65rem !important;
+}
+
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.45rem !important;
+}
+
+div[data-testid="stHorizontalBlock"] [data-testid="stImage"] {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+div[data-testid="stHorizontalBlock"] [data-testid="stImage"] > img,
+div[data-testid="stHorizontalBlock"] [data-testid="stImage"] img {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 28px rgba(10, 28, 31, 0.08);
+  display: block !important;
+  margin: 0 auto !important;
+}
+
 div[data-testid="stHorizontalBlock"] button {
+  width: 100% !important;
   border-radius: 10px !important;
   border: 1px solid var(--line) !important;
-  background: rgba(255,255,255,0.85) !important;
+  background: rgba(255,255,255,0.9) !important;
   color: #0a1c1f !important;
   font-weight: 700 !important;
   font-size: 0.78rem !important;
+  margin: 0 !important;
 }
 
-[data-testid="stImage"] img {
-  border-radius: 14px !important;
-  box-shadow: 0 8px 28px rgba(10, 28, 31, 0.08);
+/* Result row: same height feel */
+div[data-testid="stHorizontalBlock"].cs-result-row,
+.cs-align-row {
+  align-items: center !important;
 }
 
 .stSpinner > div { border-top-color: #0b6e6a !important; }
+
+div[data-testid="stCaptionContainer"] {
+  text-align: center !important;
+}
 """
 
 
 def inject_css(css: str) -> None:
-    """Inject CSS in a Cloud-safe way (markdown often strips <style>)."""
     payload = f"<style>{css}</style>"
     if hasattr(st, "html"):
         st.html(payload)
@@ -118,11 +193,14 @@ def inject_css(css: str) -> None:
 
 inject_css(CSS)
 
-# Brand hero — use <div>/<p> (Streamlit Cloud often strips <h1>)
-# Inline styles so brand stays visible even if CSS injection fails
 st.markdown(
     """
-    <div style="text-align:center;padding:1.75rem 0 0.5rem;animation:none;">
+    <div style="
+      text-align:center;
+      padding:1.5rem 0 1rem;
+      width:100%;
+      box-sizing:border-box;
+    ">
       <div style="
         font-family:Syne,Segoe UI,sans-serif;
         font-weight:800;
@@ -130,7 +208,8 @@ st.markdown(
         letter-spacing:-0.045em;
         line-height:0.95;
         color:#0a1c1f;
-        margin:0;
+        margin:0 auto;
+        text-align:center;
       ">CELL<span style="color:#0b6e6a;">SIGHT</span></div>
       <p style="
         font-family:Newsreader,Georgia,serif;
@@ -140,18 +219,20 @@ st.markdown(
         margin:1rem auto 0.4rem;
         max-width:28ch;
         line-height:1.35;
+        text-align:center;
       ">See what the eye might miss.</p>
       <p style="
         font-family:Syne,Segoe UI,sans-serif;
         font-size:0.95rem;
         color:#3d5559;
         margin:0 auto;
-        max-width:40ch;
+        max-width:38ch;
         line-height:1.5;
         opacity:0.9;
+        text-align:center;
       ">Upload a histopathology slide. Instant Yes / No from nuclear patterns and a trained CNN.</p>
       <div style="
-        width:48px;height:3px;margin:1.25rem auto 0;border-radius:2px;
+        width:48px;height:3px;margin:1.15rem auto 0;border-radius:2px;
         background:linear-gradient(90deg,transparent,#0b6e6a,transparent);
       "></div>
     </div>
@@ -207,23 +288,28 @@ if demo_files and uploaded is None:
         <p style="
           font-size:0.72rem;font-weight:700;letter-spacing:0.14em;
           text-transform:uppercase;color:#3d5559;text-align:center;
-          margin:1.4rem 0 0.55rem;font-family:Syne,sans-serif;
+          margin:1.5rem auto 0.75rem;font-family:Syne,sans-serif;
+          width:100%;
         ">Or try a sample slide</p>
         """,
         unsafe_allow_html=True,
     )
-    # Two rows of 3 — cleaner on mobile / Cloud
     clear = [p for p in demo_files if p.name.startswith("no_")]
     positive = [p for p in demo_files if p.name.startswith("yes_")]
-    for group, label in ((clear, "Clear"), (positive, "Positive")):
-        if not group:
-            continue
-        cols = st.columns(len(group))
-        for col, path in zip(cols, group):
-            with col:
-                st.image(load_demo(path.name), use_container_width=True)
-                if st.button(label, key=f"demo_{path.name}", use_container_width=True):
-                    st.session_state.demo_name = path.name
+    # Always 3 equal columns so Clear / Positive rows share the same grid
+    for group, label in ((clear[:3], "Clear"), (positive[:3], "Positive")):
+        cols = st.columns(3, gap="medium")
+        for i in range(3):
+            with cols[i]:
+                if i < len(group):
+                    path = group[i]
+                    st.image(load_demo(path.name), use_container_width=True)
+                    if st.button(
+                        label,
+                        key=f"demo_{path.name}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.demo_name = path.name
 
 image: Optional[Image.Image] = None
 if uploaded is not None:
@@ -239,7 +325,7 @@ if image is None:
         st.caption("Model missing. Train with `python3.11 train_bootstrap.py`.")
 else:
     uri = image_to_data_uri(image)
-    left, right = st.columns([1.05, 0.95], gap="large")
+    left, right = st.columns(2, gap="large")
 
     with left:
         st.markdown(
@@ -247,7 +333,7 @@ else:
             <div style="
               position:relative;border-radius:18px;overflow:hidden;
               border:1px solid rgba(10,28,31,0.12);background:#0a1c1f;
-              aspect-ratio:1;
+              aspect-ratio:1;width:100%;margin:0 auto;
             ">
               <img src="{uri}" alt="Slide preview" style="
                 width:100%;height:100%;object-fit:cover;display:block;
@@ -282,34 +368,45 @@ else:
         pct = result["confidence"] * 100
 
         if kind == "yes":
-            bg, border, color, bar = "#fef3f2", "rgba(180,35,24,0.22)", "#b42318", "#b42318"
+            bg, border, color, bar = (
+                "#fef3f2",
+                "rgba(180,35,24,0.22)",
+                "#b42318",
+                "#b42318",
+            )
         else:
-            bg, border, color, bar = "#ecfdf3", "rgba(6,118,71,0.22)", "#067647", "#067647"
+            bg, border, color, bar = (
+                "#ecfdf3",
+                "rgba(6,118,71,0.22)",
+                "#067647",
+                "#067647",
+            )
 
         st.markdown(
             f"""
             <div style="
-              margin-top:0.2rem;padding:2rem 1.35rem;border-radius:22px;
+              height:100%;min-height:280px;
+              display:flex;flex-direction:column;align-items:center;
+              justify-content:center;box-sizing:border-box;
+              margin:0;padding:2rem 1.25rem;border-radius:22px;
               text-align:center;background:{bg};border:1px solid {border};
-              color:{color};
+              color:{color};width:100%;
             ">
               <div style="
                 font-size:0.7rem;font-weight:700;letter-spacing:0.18em;
                 text-transform:uppercase;opacity:0.75;margin-bottom:0.5rem;
-                font-family:Syne,sans-serif;
               ">{kicker} reading</div>
               <p style="
-                font-family:Syne,sans-serif;font-weight:800;
-                font-size:clamp(1.55rem,3.5vw,2.2rem);letter-spacing:-0.03em;
-                line-height:1.1;margin:0;color:{color};
+                font-weight:800;font-size:clamp(1.45rem,3.2vw,2rem);
+                letter-spacing:-0.03em;line-height:1.15;margin:0;color:{color};
               ">{title}</p>
               <div style="
-                margin:1.25rem auto 0;max-width:240px;height:6px;
+                margin:1.25rem auto 0;width:100%;max-width:220px;height:6px;
                 border-radius:99px;background:rgba(10,28,31,0.08);overflow:hidden;
               "><div style="width:{pct:.1f}%;height:100%;background:{bar};border-radius:99px;"></div></div>
               <p style="
                 font-family:Newsreader,Georgia,serif;font-size:1.05rem;
-                margin-top:0.85rem;opacity:0.9;color:{color};
+                margin:0.85rem 0 0;opacity:0.9;color:{color};
               ">{pct:.0f}% confidence</p>
             </div>
             """,
@@ -319,9 +416,9 @@ else:
 st.markdown(
     """
     <div style="
-      text-align:center;margin-top:2.25rem;padding-top:1.1rem;
+      text-align:center;margin:2.25rem auto 0;padding-top:1.1rem;
       border-top:1px solid rgba(10,28,31,0.12);font-size:0.78rem;
-      color:#3d5559;font-family:Syne,sans-serif;
+      color:#3d5559;width:100%;
     ">
       CELLSIGHT · Research &amp; educational use only · Not a medical diagnosis
     </div>
