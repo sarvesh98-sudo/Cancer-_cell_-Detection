@@ -1,12 +1,12 @@
-"""CELLSIGHT — Streamlit UI for cancer cell detection."""
+"""CELLSIGHT — dark Streamlit UI for cancer cell detection."""
 
 from __future__ import annotations
 
-import base64
-import io
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 from PIL import Image
 
@@ -17,8 +17,6 @@ from model_utils import (
     predict_cancer,
 )
 
-DEMO_DIR = Path(__file__).resolve().parent / "demo_images"
-
 st.set_page_config(
     page_title="CELLSIGHT · Cancer Cell Detection",
     page_icon="⬡",
@@ -26,160 +24,55 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# Light touch CSS only — do NOT restyle the uploader button (causes double text)
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Syne:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
-:root {
-  --ink: #0a1c1f;
-  --ink-soft: #3d5559;
-  --teal: #0b6e6a;
-  --teal-deep: #084e4b;
-  --line: rgba(10, 28, 31, 0.12);
-}
-
-html, body, [class*="css"], .stApp, .stMarkdown, p, div, span, button, label {
-  font-family: "Syne", "Segoe UI", sans-serif !important;
+html, body, .stApp, [class*="css"] {
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif !important;
 }
 
 .stApp {
   background:
-    radial-gradient(ellipse 90% 55% at 8% -8%, rgba(11, 110, 106, 0.18), transparent 55%),
-    radial-gradient(ellipse 65% 45% at 100% 0%, rgba(180, 90, 60, 0.09), transparent 50%),
-    linear-gradient(165deg, #e4f0ef 0%, #f4f9f8 45%, #eef5f3 100%) !important;
+    radial-gradient(ellipse 80% 50% at 15% -10%, rgba(168, 85, 247, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 95% 10%, rgba(99, 102, 241, 0.12), transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(168, 85, 247, 0.08), transparent 50%),
+    #0a0a0f !important;
 }
 
 [data-testid="stHeader"] { background: transparent !important; }
 #MainMenu, footer, header { visibility: hidden; }
 
-/* —— Centered page column —— */
 .block-container {
-  max-width: 680px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  padding-top: 1.25rem !important;
-  padding-bottom: 2.5rem !important;
-  padding-left: 1.25rem !important;
-  padding-right: 1.25rem !important;
+  max-width: 760px !important;
+  padding-top: 1.5rem !important;
+  padding-bottom: 3rem !important;
 }
 
-/* Kill Streamlit default left bias on markdown */
-[data-testid="stMarkdownContainer"] {
-  width: 100% !important;
-}
-[data-testid="stMarkdownContainer"] > * {
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
-/* —— Uploader: center contents —— */
+/* Dropzone shell only — never touch the Browse button internals */
 [data-testid="stFileUploader"] {
-  background: rgba(255,255,255,0.72) !important;
-  border: 1.5px dashed rgba(11, 110, 106, 0.4) !important;
-  border-radius: 18px !important;
-  padding: 1.1rem 1rem 0.75rem !important;
-  width: 100% !important;
+  background: rgba(20, 18, 28, 0.9) !important;
+  border: 1px dashed rgba(168, 85, 247, 0.45) !important;
+  border-radius: 16px !important;
+  padding: 0.75rem !important;
 }
 
 [data-testid="stFileUploader"] section {
   border: none !important;
   background: transparent !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  gap: 0.35rem !important;
 }
 
-[data-testid="stFileUploader"] section > div {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  text-align: center !important;
+[data-testid="stImage"] img {
+  border-radius: 14px !important;
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
-[data-testid="stFileUploaderDropzone"] {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.85rem !important;
-  flex-wrap: wrap !important;
-}
-
-[data-testid="stFileUploaderDropzoneInstructions"] {
-  text-align: center !important;
-  align-items: center !important;
-}
-
-[data-testid="stFileUploader"] button {
-  background: #0a1c1f !important;
-  color: #f4f9f8 !important;
-  border: none !important;
-  border-radius: 10px !important;
-  font-weight: 700 !important;
-  margin: 0 auto !important;
-}
-
-[data-testid="stFileUploader"] button:hover {
-  background: #084e4b !important;
-}
-
-/* —— Equal demo grid —— */
 div[data-testid="stHorizontalBlock"] {
   align-items: stretch !important;
-  gap: 0.75rem !important;
-  margin-bottom: 0.65rem !important;
+  gap: 1rem !important;
 }
 
-div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 0.45rem !important;
-}
-
-div[data-testid="stHorizontalBlock"] [data-testid="stImage"] {
-  width: 100% !important;
-  margin: 0 !important;
-}
-
-div[data-testid="stHorizontalBlock"] [data-testid="stImage"] > img,
-div[data-testid="stHorizontalBlock"] [data-testid="stImage"] img {
-  width: 100% !important;
-  aspect-ratio: 1 / 1 !important;
-  object-fit: cover !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 28px rgba(10, 28, 31, 0.08);
-  display: block !important;
-  margin: 0 auto !important;
-}
-
-div[data-testid="stHorizontalBlock"] button {
-  width: 100% !important;
-  border-radius: 10px !important;
-  border: 1px solid var(--line) !important;
-  background: rgba(255,255,255,0.9) !important;
-  color: #0a1c1f !important;
-  font-weight: 700 !important;
-  font-size: 0.78rem !important;
-  margin: 0 !important;
-}
-
-/* Result row: same height feel */
-div[data-testid="stHorizontalBlock"].cs-result-row,
-.cs-align-row {
-  align-items: center !important;
-}
-
-.stSpinner > div { border-top-color: #0b6e6a !important; }
-
-div[data-testid="stCaptionContainer"] {
-  text-align: center !important;
-}
+.stSpinner > div { border-top-color: #a855f7 !important; }
 """
 
 
@@ -193,48 +86,23 @@ def inject_css(css: str) -> None:
 
 inject_css(CSS)
 
+# —— Hero ——
 st.markdown(
     """
-    <div style="
-      text-align:center;
-      padding:1.5rem 0 1rem;
-      width:100%;
-      box-sizing:border-box;
-    ">
+    <div style="text-align:center;padding:1.25rem 0 0.75rem;">
       <div style="
-        font-family:Syne,Segoe UI,sans-serif;
-        font-weight:800;
-        font-size:clamp(2.6rem,9vw,4.2rem);
-        letter-spacing:-0.045em;
-        line-height:0.95;
-        color:#0a1c1f;
-        margin:0 auto;
-        text-align:center;
-      ">CELL<span style="color:#0b6e6a;">SIGHT</span></div>
+        font-family:Outfit,sans-serif;font-weight:800;
+        font-size:clamp(2.4rem,8vw,3.8rem);letter-spacing:-0.04em;
+        line-height:1;color:#f5f3ff;margin:0;
+      ">CELL<span style="color:#c084fc;">SIGHT</span></div>
       <p style="
-        font-family:Newsreader,Georgia,serif;
-        font-size:clamp(1.15rem,2.8vw,1.4rem);
-        font-weight:500;
-        color:#3d5559;
-        margin:1rem auto 0.4rem;
+        font-family:Outfit,sans-serif;font-weight:500;
+        font-size:1.15rem;color:#c4b5fd;margin:0.85rem auto 0.35rem;
         max-width:28ch;
-        line-height:1.35;
-        text-align:center;
       ">See what the eye might miss.</p>
       <p style="
-        font-family:Syne,Segoe UI,sans-serif;
-        font-size:0.95rem;
-        color:#3d5559;
-        margin:0 auto;
-        max-width:38ch;
-        line-height:1.5;
-        opacity:0.9;
-        text-align:center;
-      ">Upload a histopathology slide. Instant Yes / No from nuclear patterns and a trained CNN.</p>
-      <div style="
-        width:48px;height:3px;margin:1.15rem auto 0;border-radius:2px;
-        background:linear-gradient(90deg,transparent,#0b6e6a,transparent);
-      "></div>
+        font-size:0.92rem;color:#a1a1aa;margin:0 auto;max-width:42ch;line-height:1.5;
+      ">Upload a histopathology image for an instant Yes / No reading with score breakdown.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -244,20 +112,6 @@ st.markdown(
 @st.cache_resource
 def get_model(_mtime: float):
     return load_cancer_model()
-
-
-@st.cache_data
-def load_demo(name: str) -> Image.Image:
-    return Image.open(DEMO_DIR / name).convert("RGB")
-
-
-def image_to_data_uri(image: Image.Image, max_side: int = 720) -> str:
-    img = image.copy()
-    img.thumbnail((max_side, max_side))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    return f"data:image/png;base64,{b64}"
 
 
 def run_prediction(image: Image.Image) -> dict:
@@ -270,155 +124,284 @@ def run_prediction(image: Image.Image) -> dict:
     return predict_cancer(model, image)
 
 
+def score_bars(feature: float, cnn: float, blended: float) -> go.Figure:
+    labels = ["Nuclear density", "CNN score", "Final blend"]
+    values = [feature * 100, cnn * 100, blended * 100]
+    colors = ["#7c3aed", "#a855f7", "#e879f9"]
+    fig = go.Figure(
+        go.Bar(
+            x=values,
+            y=labels,
+            orientation="h",
+            marker=dict(color=colors, line=dict(width=0)),
+            text=[f"{v:.0f}%" for v in values],
+            textposition="outside",
+            textfont=dict(color="#e4e4e7", size=12),
+            cliponaxis=False,
+        )
+    )
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=8, r=48, t=8, b=8),
+        height=200,
+        xaxis=dict(
+            range=[0, 115],
+            showgrid=True,
+            gridcolor="rgba(168,85,247,0.12)",
+            tickfont=dict(color="#71717a"),
+            title=None,
+        ),
+        yaxis=dict(tickfont=dict(color="#d4d4d8", size=12), title=None),
+        showlegend=False,
+    )
+    return fig
+
+
+def gauge_chart(confidence: float, positive: bool) -> go.Figure:
+    color = "#f472b6" if positive else "#34d399"
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=confidence * 100,
+            number={"suffix": "%", "font": {"size": 36, "color": "#f5f3ff"}},
+            title={"text": "Confidence", "font": {"size": 14, "color": "#a1a1aa"}},
+            gauge={
+                "axis": {
+                    "range": [0, 100],
+                    "tickcolor": "#52525b",
+                    "tickfont": {"color": "#71717a"},
+                },
+                "bar": {"color": color},
+                "bgcolor": "rgba(20,18,28,0.8)",
+                "borderwidth": 0,
+                "steps": [
+                    {"range": [0, 50], "color": "rgba(168,85,247,0.08)"},
+                    {"range": [50, 100], "color": "rgba(168,85,247,0.16)"},
+                ],
+                "threshold": {
+                    "line": {"color": "#c084fc", "width": 2},
+                    "thickness": 0.8,
+                    "value": 50,
+                },
+            },
+        )
+    )
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=20, r=20, t=40, b=10),
+        height=230,
+    )
+    return fig
+
+
 uploaded = st.file_uploader(
-    "Drop a slide image here",
+    "Upload slide image",
     type=["png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"],
     label_visibility="collapsed",
-    help="PNG, JPG, TIFF, BMP, or WEBP",
 )
-
-if "demo_name" not in st.session_state:
-    st.session_state.demo_name = None
-
-demo_files = sorted(DEMO_DIR.glob("*.png")) if DEMO_DIR.exists() else []
-
-if demo_files and uploaded is None:
-    st.markdown(
-        """
-        <p style="
-          font-size:0.72rem;font-weight:700;letter-spacing:0.14em;
-          text-transform:uppercase;color:#3d5559;text-align:center;
-          margin:1.5rem auto 0.75rem;font-family:Syne,sans-serif;
-          width:100%;
-        ">Or try a sample slide</p>
-        """,
-        unsafe_allow_html=True,
-    )
-    clear = [p for p in demo_files if p.name.startswith("no_")]
-    positive = [p for p in demo_files if p.name.startswith("yes_")]
-    # Always 3 equal columns so Clear / Positive rows share the same grid
-    for group, label in ((clear[:3], "Clear"), (positive[:3], "Positive")):
-        cols = st.columns(3, gap="medium")
-        for i in range(3):
-            with cols[i]:
-                if i < len(group):
-                    path = group[i]
-                    st.image(load_demo(path.name), use_container_width=True)
-                    if st.button(
-                        label,
-                        key=f"demo_{path.name}",
-                        use_container_width=True,
-                    ):
-                        st.session_state.demo_name = path.name
 
 image: Optional[Image.Image] = None
 if uploaded is not None:
     image = Image.open(uploaded).convert("RGB")
-    st.session_state.demo_name = None
-elif st.session_state.demo_name:
-    image = load_demo(st.session_state.demo_name)
 
 if image is None:
-    if not HAS_TENSORFLOW:
-        st.caption("Feature mode — densitometry scoring without TensorFlow.")
-    elif not MODEL_PATH.exists():
-        st.caption("Model missing. Train with `python3.11 train_bootstrap.py`.")
-else:
-    uri = image_to_data_uri(image)
-    left, right = st.columns(2, gap="large")
+    # —— Empty state: details only ——
+    st.markdown(
+        """
+        <div style="
+          margin-top:1.5rem;padding:1.35rem 1.4rem;border-radius:16px;
+          background:#14121c;border:1px solid rgba(168,85,247,0.22);
+        ">
+          <p style="
+            font-family:Outfit,sans-serif;font-weight:700;font-size:0.95rem;
+            color:#e9d5ff;margin:0 0 0.65rem;letter-spacing:0.02em;
+          ">How CELLSIGHT works</p>
+          <p style="color:#a1a1aa;font-size:0.88rem;line-height:1.65;margin:0;">
+            The app blends two signals: a <b style="color:#d8b4fe;">nuclear-density</b> readout
+            from H&amp;E color cues in the center patch, and a <b style="color:#d8b4fe;">CNN</b>
+            trained on histopathology-style patches. The final Yes / No uses a 65% / 35% mix.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    c1, c2, c3 = st.columns(3, gap="medium")
+    cards = [
+        ("01", "Upload", "PNG, JPG, TIFF, BMP, or WEBP histology image."),
+        ("02", "Analyze", "Density + CNN scores fuse into one confidence."),
+        ("03", "Read", "Clear Yes / No with charts — research use only."),
+    ]
+    for col, (num, title, body) in zip((c1, c2, c3), cards):
+        with col:
+            st.markdown(
+                f"""
+                <div style="
+                  padding:1.1rem 1rem;border-radius:14px;height:100%;
+                  background:#121018;border:1px solid rgba(168,85,247,0.18);
+                  text-align:left;
+                ">
+                  <div style="color:#7c3aed;font-weight:700;font-size:0.75rem;
+                    letter-spacing:0.12em;margin-bottom:0.45rem;">{num}</div>
+                  <div style="font-family:Outfit,sans-serif;font-weight:700;
+                    color:#f5f3ff;font-size:1rem;margin-bottom:0.35rem;">{title}</div>
+                  <div style="color:#a1a1aa;font-size:0.82rem;line-height:1.45;">{body}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    # Placeholder chart so the empty state still has a graph
+    demo_fig = go.Figure()
+    demo_fig.add_trace(
+        go.Scatter(
+            x=list(range(12)),
+            y=np.clip(
+                0.35 + 0.08 * np.sin(np.linspace(0, 5, 12)) + np.linspace(0, 0.15, 12),
+                0,
+                1,
+            ),
+            mode="lines+markers",
+            line=dict(color="#a855f7", width=2.5),
+            marker=dict(size=7, color="#c084fc"),
+            name="Example score trend",
+        )
+    )
+    demo_fig.add_hline(
+        y=0.5,
+        line_dash="dot",
+        line_color="rgba(192,132,252,0.45)",
+        annotation_text="Decision threshold",
+        annotation_font_color="#a1a1aa",
+    )
+    demo_fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=10, r=10, t=40, b=10),
+        height=240,
+        title=dict(
+            text="Example confidence curve (illustrative)",
+            font=dict(size=13, color="#a1a1aa"),
+            x=0,
+            xanchor="left",
+        ),
+        xaxis=dict(
+            showgrid=False,
+            tickfont=dict(color="#52525b"),
+            title=None,
+        ),
+        yaxis=dict(
+            range=[0, 1],
+            showgrid=True,
+            gridcolor="rgba(168,85,247,0.1)",
+            tickfont=dict(color="#71717a"),
+            title=None,
+        ),
+        showlegend=False,
+    )
+    st.markdown("<div style='height:1.25rem'></div>", unsafe_allow_html=True)
+    st.plotly_chart(demo_fig, use_container_width=True, config={"displayModeBar": False})
+
+else:
+    with st.spinner("Reading cellular architecture…"):
+        result = run_prediction(image)
+
+    positive = result["has_cancer"]
+    title = "Cancer signals found" if positive else "No cancer signals"
+    accent = "#f472b6" if positive else "#34d399"
+    panel_bg = "rgba(244,114,182,0.08)" if positive else "rgba(52,211,153,0.08)"
+    panel_border = "rgba(244,114,182,0.35)" if positive else "rgba(52,211,153,0.35)"
+
+    left, right = st.columns([1, 1], gap="large")
     with left:
+        st.image(image, use_container_width=True, caption="Uploaded slide")
+    with right:
         st.markdown(
             f"""
             <div style="
-              position:relative;border-radius:18px;overflow:hidden;
-              border:1px solid rgba(10,28,31,0.12);background:#0a1c1f;
-              aspect-ratio:1;width:100%;margin:0 auto;
+              min-height:260px;display:flex;flex-direction:column;
+              align-items:center;justify-content:center;text-align:center;
+              padding:1.75rem 1.25rem;border-radius:16px;
+              background:{panel_bg};border:1px solid {panel_border};
             ">
-              <img src="{uri}" alt="Slide preview" style="
-                width:100%;height:100%;object-fit:cover;display:block;
-                filter:saturate(1.08) contrast(1.04);
-              "/>
               <div style="
-                position:absolute;left:0;right:0;height:32%;top:0;
-                background:linear-gradient(180deg,transparent,
-                  rgba(120,230,220,0.22),transparent);
-                animation:csScan 1.7s ease-in-out infinite;
-                pointer-events:none;
-              "></div>
+                font-size:0.7rem;font-weight:700;letter-spacing:0.16em;
+                text-transform:uppercase;color:{accent};opacity:0.9;margin-bottom:0.5rem;
+              ">{"Positive" if positive else "Negative"} reading</div>
+              <div style="
+                font-family:Outfit,sans-serif;font-weight:800;
+                font-size:clamp(1.4rem,3vw,1.85rem);color:#f5f3ff;
+                letter-spacing:-0.02em;line-height:1.15;
+              ">{title}</div>
+              <div style="
+                margin-top:0.85rem;font-size:1.05rem;color:{accent};
+                font-family:Outfit,sans-serif;font-weight:600;
+              ">{result['confidence'] * 100:.0f}% confidence</div>
             </div>
-            <style>
-              @keyframes csScan {{
-                0% {{ transform: translateY(-30%); opacity: 0; }}
-                15% {{ opacity: 0.9; }}
-                100% {{ transform: translateY(130%); opacity: 0; }}
-              }}
-            </style>
             """,
             unsafe_allow_html=True,
         )
 
-    with right:
-        with st.spinner("Reading cellular architecture…"):
-            result = run_prediction(image)
+    st.markdown(
+        """
+        <p style="
+          font-family:Outfit,sans-serif;font-weight:700;font-size:0.95rem;
+          color:#e9d5ff;margin:1.75rem 0 0.35rem;
+        ">Score breakdown</p>
+        <p style="color:#71717a;font-size:0.82rem;margin:0 0 0.5rem;">
+          Nuclear density (65%) + CNN (35%) → final decision at 50% threshold.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        kind = "yes" if result["has_cancer"] else "no"
-        title = "Cancer signals found" if result["has_cancer"] else "No cancer signals"
-        kicker = "Positive" if result["has_cancer"] else "Negative"
-        pct = result["confidence"] * 100
+    g1, g2 = st.columns(2, gap="large")
+    with g1:
+        st.plotly_chart(
+            gauge_chart(result["confidence"], positive),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
+    with g2:
+        st.plotly_chart(
+            score_bars(
+                float(result.get("feature_score", 0)),
+                float(result.get("cnn_score", 0)),
+                float(result.get("raw_score", result["confidence"])),
+            ),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
 
-        if kind == "yes":
-            bg, border, color, bar = (
-                "#fef3f2",
-                "rgba(180,35,24,0.22)",
-                "#b42318",
-                "#b42318",
-            )
-        else:
-            bg, border, color, bar = (
-                "#ecfdf3",
-                "rgba(6,118,71,0.22)",
-                "#067647",
-                "#067647",
-            )
+    # Detail metrics
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Verdict", "Yes" if positive else "No")
+    m2.metric("Final", f"{result['raw_score'] * 100:.1f}%")
+    m3.metric("Density", f"{result['feature_score'] * 100:.1f}%")
+    m4.metric("CNN", f"{result['cnn_score'] * 100:.1f}%")
 
+    with st.expander("What these numbers mean", expanded=False):
         st.markdown(
-            f"""
-            <div style="
-              height:100%;min-height:280px;
-              display:flex;flex-direction:column;align-items:center;
-              justify-content:center;box-sizing:border-box;
-              margin:0;padding:2rem 1.25rem;border-radius:22px;
-              text-align:center;background:{bg};border:1px solid {border};
-              color:{color};width:100%;
-            ">
-              <div style="
-                font-size:0.7rem;font-weight:700;letter-spacing:0.18em;
-                text-transform:uppercase;opacity:0.75;margin-bottom:0.5rem;
-              ">{kicker} reading</div>
-              <p style="
-                font-weight:800;font-size:clamp(1.45rem,3.2vw,2rem);
-                letter-spacing:-0.03em;line-height:1.15;margin:0;color:{color};
-              ">{title}</p>
-              <div style="
-                margin:1.25rem auto 0;width:100%;max-width:220px;height:6px;
-                border-radius:99px;background:rgba(10,28,31,0.08);overflow:hidden;
-              "><div style="width:{pct:.1f}%;height:100%;background:{bar};border-radius:99px;"></div></div>
-              <p style="
-                font-family:Newsreader,Georgia,serif;font-size:1.05rem;
-                margin:0.85rem 0 0;opacity:0.9;color:{color};
-              ">{pct:.0f}% confidence</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
+            """
+**Nuclear density** — estimates crowded / hematoxylin-stained nuclei in the center region  
+(PatchCamelyon-style focus).
+
+**CNN score** — output of the trained convolutional network when TensorFlow is available.
+
+**Final blend** — `0.65 × density + 0.35 × CNN`. Values ≥ 50% → **Yes**.
+
+This tool is for **research and education only** — not a clinical diagnosis.
+            """
         )
 
 st.markdown(
     """
     <div style="
-      text-align:center;margin:2.25rem auto 0;padding-top:1.1rem;
-      border-top:1px solid rgba(10,28,31,0.12);font-size:0.78rem;
-      color:#3d5559;width:100%;
+      text-align:center;margin-top:2.5rem;padding-top:1.1rem;
+      border-top:1px solid rgba(168,85,247,0.18);
+      font-size:0.75rem;color:#71717a;
     ">
       CELLSIGHT · Research &amp; educational use only · Not a medical diagnosis
     </div>
