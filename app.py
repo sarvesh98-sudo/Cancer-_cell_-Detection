@@ -1,4 +1,4 @@
-"""CELLSIGHT — dark Streamlit UI for cancer cell detection."""
+"""CELLSIGHT — dark Streamlit UI for cancer cell detection"""
 
 from __future__ import annotations
 
